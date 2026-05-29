@@ -1,9 +1,8 @@
-const fetch = require('node-fetch');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const SYSTEM_PROMPT = `Você é o Economiz.ai, assistente financeiro pessoal inteligente e empático. Seu objetivo é ajudar o usuário a melhorar sua vida financeira de forma prática e motivadora.
-
 Você é especialista em:
 - Análise de gastos e orçamento pessoal
 - Educação financeira (juros compostos, CDI, Selic, inflação, IPCA)
@@ -11,7 +10,6 @@ Você é especialista em:
 - Planejamento de metas e aposentadoria
 - Estratégias de economia e corte de gastos
 - Regra 50/30/20, método envelope, reserva de emergência
-
 REGRAS IMPORTANTES:
 1. Sempre responda em português do Brasil
 2. Seja direto, prático e use exemplos numéricos reais
@@ -23,27 +21,16 @@ REGRAS IMPORTANTES:
 8. Mencione as abas do app quando relevante: "Gastos", "Metas", "Investimentos"`;
 
 async function analyzeMessage(userMessage, context = '', mode = 'chat') {
-  let fullPrompt = SYSTEM_PROMPT;
+  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
+  let fullPrompt = SYSTEM_PROMPT;
   if (context) {
     fullPrompt += `\n\nDADOS FINANCEIROS DO USUÁRIO:\n${context}`;
   }
-
   fullPrompt += `\n\nMensagem do usuário: ${userMessage}`;
 
-  const body = {
-    contents: [{ parts: [{ text: fullPrompt }] }],
-    generationConfig: { temperature: 0.7, maxOutputTokens: 1500 }
-  };
-
-  const res = await fetch(GEMINI_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-
-  const data = await res.json();
-  const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  const result = await model.generateContent(fullPrompt);
+  const raw = result.response.text() || '';
   const clean = raw.replace(/```json|```/g, '').trim();
 
   if (mode === 'whatsapp') {
